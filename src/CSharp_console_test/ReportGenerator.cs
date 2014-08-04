@@ -16,9 +16,11 @@ namespace excel4report
         {
             _src_worksheet = src_worksheet;
             _dest_worksheet = dest_worksheet;
+
+            writeProjectNamesToDestSheet();
         }
 
-        public int CountGroupNumber()
+        public int CountProjectNumber()
         {
             Excel.Range ra;
             int count = 0;
@@ -39,14 +41,14 @@ namespace excel4report
         public int CountLeaveDays()
         {
             Excel.Range ra;
-            int count = 0;
-            int groupNumber = CountGroupNumber();
+            int leaveDays = 0;
+            int projectNumber = CountProjectNumber();
 
             bool isDayLeave = true;
             for (int col = 2; col<=6; col++)
             {
                 isDayLeave = true;
-                for (int row = 2; row < 2 + groupNumber; row++)
+                for (int row = 2; row < 2 + projectNumber; row++)
                 {
                     ra = ((Excel.Range)_src_worksheet.Cells[row, col]); // row, column
                     string value = ra.Text;
@@ -58,13 +60,13 @@ namespace excel4report
                     }
                 }
                 if (isDayLeave)
-                    count++;
+                    leaveDays++;
             }
             //// filename
             //ra = ((Excel.Range)src_worksheet.Cells[lineIndex + 1, 1]); // row, column
             //ra.Value2 = words[0];
 
-            return count;
+            return leaveDays;
         }
 
         /// <summary>
@@ -72,7 +74,7 @@ namespace excel4report
         /// </summary>
         /// <param name="project_name">containing the project_name</param>
         /// <returns></returns>
-        public int GetProjectRow(string project_name)
+        public int GetProjectRowFromSrcSheet(string project_name)
         {
             int proj_row = 0;
 
@@ -96,12 +98,11 @@ namespace excel4report
             return proj_row;
         }
 
-        public int GetReportCol(string report_name)
+        public int GetReportColFromDestSheet(string report_name)
         {
             int report_col = 0;
             Excel.Range ra;
 
-            // get gap_proj_row
             for (int col = 2; ; col++)
             {
                 ra = ((Excel.Range)_dest_worksheet.Cells[1, col]); // row, column
@@ -125,8 +126,8 @@ namespace excel4report
         /// <param name="startDay"></param>
         public void WriteToGapReport(int startDay)
         {
-            int gap_col = GetReportCol("gap");
-            int gap_row = GetProjectRow("gap");
+            int gap_col = GetReportColFromDestSheet("gap");
+            int gap_row = GetProjectRowFromSrcSheet("gap");
             Excel.Range ra;
 
             string report = "";
@@ -145,20 +146,29 @@ namespace excel4report
 
             ra = ((Excel.Range)_dest_worksheet.Cells[gap_row, gap_col]); // row, column
             ra.Value2 = report;
+        }
 
-                //GetProjectRow("gap");
-                //countLeaveDays();
-                // countGroupNumber();
+        private void writeProjectNamesToDestSheet()
+        {
+            Excel.Range ra;
+            int proj_others_row = GetProjectRowFromSrcSheet("others");
+            string projName = "";
 
-            Console.WriteLine("");
+            for (int row = 2; row <= proj_others_row; row++)
+            {
+                projName = GetProjectNameFromSrcSheet(row);
+
+                ra = ((Excel.Range)_dest_worksheet.Cells[row, 1]);
+                ra.Value2 = projName;
+            }
         }
 
         private void writeToEachProject(int startDay, string report_col_name, bool contain_project_others)
         {
             Excel.Range ra;
-            int report_col = GetReportCol(report_col_name);
+            int report_col = GetReportColFromDestSheet(report_col_name);
             int day_col = 0;
-            int proj_others_row = GetProjectRow("others");
+            int proj_others_row = GetProjectRowFromSrcSheet("others");
             string report = "";
             int k = contain_project_others ? 1 : 0;
 
@@ -182,10 +192,10 @@ namespace excel4report
             }
         }
 
-        public string GetProjectName(int row)
+        public string GetProjectNameFromSrcSheet(int row)
         {
             Excel.Range ra;
-            ra = ((Excel.Range)_dest_worksheet.Cells[row, 1]);
+            ra = ((Excel.Range)_src_worksheet.Cells[row, 1]);
 
             return (string)ra.Text;
         }
@@ -194,15 +204,15 @@ namespace excel4report
         {
             writeToEachProject(startDay, "main power", false);
 
-            #region Write topic to each project
+            #region Add project name on the top of each cell
             Excel.Range ra;
-            int report_col = GetReportCol("main power");
-            int proj_others_row = GetProjectRow("others");
+            int report_col = GetReportColFromDestSheet("main power");
+            int proj_others_row = GetProjectRowFromSrcSheet("others");
             string report = "";
 
             for (int row = 2; row < proj_others_row; row++)
             {
-                report = GetProjectName(row) + ":\n";
+                report = GetProjectNameFromSrcSheet(row) + ":\n";
                 ra = ((Excel.Range)_dest_worksheet.Cells[row, report_col]);
 
                 report += (string)ra.Text;
@@ -211,14 +221,14 @@ namespace excel4report
             }
             #endregion
 
-            // Integrate all projects' reports into the cell of 'others' project
+            /* Integrate all projects' reports into the cell of 'others' project */
             report = "";
             for (int row = 2; row < proj_others_row; row++)
             {
                 ra = ((Excel.Range)_dest_worksheet.Cells[row, report_col]);
                 report += (string)ra.Text + "\n\n";
             }
-            ra = ((Excel.Range)_dest_worksheet.Cells[GetProjectRow("others"), report_col]);
+            ra = ((Excel.Range)_dest_worksheet.Cells[GetProjectRowFromSrcSheet("others"), report_col]);
             ra.Value2 = report;
 
             // clean projects' reports (except the 'others' row)
@@ -227,10 +237,6 @@ namespace excel4report
                 ra = ((Excel.Range)_dest_worksheet.Cells[row, report_col]);
                 ra.Value2 = "";
             }
-
-            // calculate the percentage of each project on each day
-
-            // int leaveDays = CountLeaveDays();
         }
 
         public void WriteToWeeklyReport(int startDay)
